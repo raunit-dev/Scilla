@@ -6,6 +6,7 @@ use {
         misc::helpers::lamports_to_sol,
         prompt::prompt_data,
         ui::{print_error, show_spinner},
+        constants::{LAMPORTS_PER_SOL, MAX_TRANSFER_SOL},
     },
     anyhow::bail,
     comfy_table::{Cell, Table, presets::UTF8_FULL},
@@ -15,7 +16,12 @@ use {
     solana_pubkey::Pubkey,
     solana_rpc_client_api::config::{RpcLargestAccountsConfig, RpcLargestAccountsFilter},
     solana_signature::Signature,
+    solana_system_interface::instruction::transfer,
+    solana_transaction::Transaction,
+    solana_message::Message,
 };
+
+
 
 /// Commands related to wallet or account management
 #[derive(Debug, Clone)]
@@ -57,7 +63,16 @@ impl AccountCommand {
                 show_spinner(self.description(), fetch_account_balance(ctx, &pubkey)).await?;
             }
             AccountCommand::Transfer => {
-                // show_spinner(self.description(), todo!()).await?;
+                let to: Pubkey = prompt_data("Enter recipient Pubkey:")?;
+                let amount: f64 = prompt_data("Enter amount (SOL):")?;
+                if amount > MAX_TRANSFER_SOL {
+                    print_error(format!("Amount exceeds maximum allowed limit of {} SOL", MAX_TRANSFER_SOL));
+                } else {
+                    let res = show_spinner(self.description(), transfer_sol(ctx, to, amount)).await;
+                    if let Err(e) = res {
+                        print_error(format!("Transaction failed: {}", e));
+                    }
+                }
             }
             AccountCommand::Airdrop => {
                 show_spinner(self.description(), request_sol_airdrop(ctx)).await?;
@@ -255,6 +270,28 @@ async fn fetch_nonce_account(ctx: &ScillaContext, pubkey: &Pubkey) -> anyhow::Re
 
     println!("\n{}", style("NONCE ACCOUNT INFO").green().bold());
     println!("{}", table);
+
+    Ok(())
+}
+
+async fn transfer_sol(ctx: &ScillaContext, to: Pubkey, amount_sol: f64) -> anyhow::Result<()> {
+    let lamports = (amount_sol * LAMPORTS_PER_SOL as f64) as u64;
+    let from_pubkey = ctx.pubkey();
+    
+    let instruction = transfer(&from_pubkey, &to, lamports);
+    let recent_blockhash = ctx.rpc().get_latest_blockhash().await?;
+    
+    let message = Message::new(&[instruction], Some(from_pubkey));
+    let transaction = Transaction::new(&[ctx.keypair()], message, recent_blockhash);
+    
+    let signature = ctx.rpc().send_and_confirm_transaction(&transaction).await?;
+    
+    println!(
+        "\n{} {}\n{}",
+        style("Transfer successful!").green().bold(),
+        style(format!("Amount: {} SOL", amount_sol)).cyan(),
+        style(format!("Signature: {}", signature)).yellow()
+    );
 
     Ok(())
 }
