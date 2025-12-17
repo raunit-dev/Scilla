@@ -75,8 +75,21 @@ impl fmt::Display for StakeCommand {
 impl StakeCommand {
     pub async fn process_command(&self, ctx: &ScillaContext) -> ScillaResult<()> {
         match self {
-            StakeCommand::Create => todo!(),
-            StakeCommand::Delegate => todo!(),
+            StakeCommand::Create => {
+                let stake_account_keypair_path: PathBuf =
+                    prompt_data("Enter Stake Account Keypair: ")?;
+                let amount_to_stake: f64 = prompt_data("Enter amount to stake (in SOL):")?;
+
+                show_spinner(
+                    self.description(),
+                    process_create_stake_account(ctx, &stake_account_keypair_path, amount_to_stake),
+                )
+                .await?;
+            }
+            StakeCommand::Delegate => {
+                // show_spinner(self.description(), delegate_stake_account(ctx)).await?
+                todo!()
+            }
             StakeCommand::Deactivate => {
                 let stake_pubkey: Pubkey =
                     prompt_data("Enter Stake Account Pubkey to Deactivate:")?;
