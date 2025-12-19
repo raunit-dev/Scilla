@@ -1,4 +1,7 @@
-use crate::{ScillaContext, ScillaResult, commands::CommandExec};
+use {
+    crate::{ScillaContext, ScillaResult, commands::CommandExec},
+    std::fmt,
+};
 /// Commands related to configuration like RPC_URL , KEYAPAIR_PATH etc
 #[derive(Debug, Clone)]
 pub enum ConfigCommand {
@@ -16,6 +19,18 @@ impl ConfigCommand {
             ConfigCommand::Edit => "Editing existing Scilla configuration…",
             ConfigCommand::GoBack => "Going back…",
         }
+    }
+}
+
+impl fmt::Display for ConfigCommand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let command = match self {
+            ConfigCommand::Show => "Show ScillaConfig",
+            ConfigCommand::Generate => "Generate ScillaConfig",
+            ConfigCommand::Edit => "Edit ScillaConfig",
+            ConfigCommand::GoBack => "Go Back",
+        };
+        write!(f, "{}", command)
     }
 }
 

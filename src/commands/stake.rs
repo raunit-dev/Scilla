@@ -16,6 +16,7 @@ use {
         program::id as stake_program_id,
         state::StakeStateV2,
     },
+    std::fmt,
 };
 
 /// Commands related to staking operations
@@ -45,6 +46,23 @@ impl StakeCommand {
             StakeCommand::History => "Fetching stake account history…",
             StakeCommand::GoBack => "Going back…",
         }
+    }
+}
+
+impl fmt::Display for StakeCommand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let command = match self {
+            StakeCommand::Create => "Create",
+            StakeCommand::Delegate => "Delegate",
+            StakeCommand::Deactivate => "Deactivate",
+            StakeCommand::Withdraw => "Withdraw",
+            StakeCommand::Merge => "Merge",
+            StakeCommand::Split => "Split",
+            StakeCommand::Show => "Show",
+            StakeCommand::History => "History",
+            StakeCommand::GoBack => "Go Back",
+        };
+        write!(f, "{}", command)
     }
 }
 
