@@ -62,7 +62,7 @@ impl AccountCommand {
                 show_spinner(self.description(), fetch_account_balance(ctx, &pubkey)).await?;
             }
             AccountCommand::Transfer => {
-                let receiver: Pubkey = prompt_data("Enter recipient Pubkey:")?;
+                let recipient_address:  Pubkey = prompt_data("Enter recipient Pubkey:")?;
                 let amount: f64 = prompt_data("Enter amount (SOL):")?;
                 let res = show_spinner(self.description(), transfer_sol(ctx, receiver, amount)).await;
                 if let Err(e) = res {
