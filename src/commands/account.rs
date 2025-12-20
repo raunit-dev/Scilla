@@ -3,7 +3,7 @@ use {
         commands::CommandExec,
         context::ScillaContext,
         error::ScillaResult,
-        misc::helpers::{lamports_to_sol, sol_to_lamports},
+        misc::helpers::{build_and_send_tx, lamports_to_sol, sol_to_lamports},
         prompt::prompt_data,
         ui::{print_error, show_spinner},
     },
@@ -11,13 +11,11 @@ use {
     comfy_table::{Cell, Table, presets::UTF8_FULL},
     console::style,
     inquire::Select,
-    solana_message::Message,
     solana_nonce::versions::Versions,
     solana_pubkey::Pubkey,
     solana_rpc_client_api::config::{RpcLargestAccountsConfig, RpcLargestAccountsFilter},
     solana_signature::Signature,
     solana_system_interface::instruction::transfer,
-    solana_transaction::Transaction,
 };
 
 
@@ -64,10 +62,7 @@ impl AccountCommand {
             AccountCommand::Transfer => {
                 let recipient_address:  Pubkey = prompt_data("Enter recipient Pubkey:")?;
                 let amount: f64 = prompt_data("Enter amount (SOL):")?;
-                let res = show_spinner(self.description(), transfer_sol(ctx, receiver, amount)).await;
-                if let Err(e) = res {
-                    print_error(format!("Transaction failed: {}", e));
-                }
+                show_spinner(self.description(), transfer_sol(ctx, receiver, amount)).await?;
             }
             AccountCommand::Airdrop => {
                 show_spinner(self.description(), request_sol_airdrop(ctx)).await?;
@@ -279,20 +274,15 @@ async fn transfer_sol(ctx: &ScillaContext, receiver: Pubkey, amount_sol: f64) ->
               lamports_to_sol(balance), amount_sol);
     }
     
-    let from_pubkey = ctx.pubkey();
-    let instruction = transfer(&from_pubkey, &receiver, lamports);
-    let recent_blockhash = ctx.rpc().get_latest_blockhash().await?;
-    
-    let message = Message::new(&[instruction], Some(from_pubkey));
-    let transaction = Transaction::new(&[ctx.keypair()], message, recent_blockhash);
-    
-    let signature = ctx.rpc().send_and_confirm_transaction(&transaction).await?;
+    let instruction = transfer(ctx.pubkey(), &receiver, lamports);
+    let signature = build_and_send_tx(ctx, &[instruction]).await?;
     
     println!(
-        "\n{} {}\n{}",
+        "\n{} {}\n{}\n{}",
         style("Transfer successful!").green().bold(),
         style(format!("Amount: {} SOL", amount_sol)).cyan(),
-        style(format!("Signature: {}", signature)).yellow()
+        style(format!("Signature: {}", signature)).yellow(),
+        style(format!("Recipient Address: {}", receiver)).yellow()
     );
 
     Ok(())
