@@ -35,7 +35,6 @@ use {
     std::{fmt, ops::Div, path::PathBuf},
 };
 
-
 /// Commands related to staking operations
 #[derive(Debug, Clone)]
 pub enum StakeCommand {
@@ -266,7 +265,7 @@ async fn process_create_stake_account(
         .map_err(|err| anyhow!("Unable to deserealize clock: {}", err))?;
 
     let current_epoch = clock.epoch;
-        
+
     // Add stake state specific information
     let mut table = Table::new();
     table
