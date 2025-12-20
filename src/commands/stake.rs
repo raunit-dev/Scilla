@@ -35,6 +35,7 @@ use {
     std::{fmt, ops::Div, path::PathBuf},
 };
 
+
 /// Commands related to staking operations
 #[derive(Debug, Clone)]
 pub enum StakeCommand {
@@ -87,12 +88,12 @@ impl StakeCommand {
         match self {
             StakeCommand::Create => {
                 let stake_account_keypair_path: PathBuf =
-                    prompt_data("Enter Stake Account Keypair: ")?;
+                    prompt_data("Enter Stake Account Keypair Path: ")?;
                 let amount_to_stake: SolAmount = prompt_data("Enter amount to stake (in SOL):")?;
 
                 show_spinner(
                     self.spinner_msg(),
-                    process_create_stake_account(ctx, &stake_account_keypair_path, amount_to_stake),
+                    process_create_stake_account(ctx, stake_account_keypair_path, amount_to_stake),
                 )
                 .await?;
             }
@@ -180,7 +181,7 @@ impl StakeCommand {
 
 async fn process_create_stake_account(
     ctx: &ScillaContext,
-    stake_account_keypair_path: &PathBuf,
+    stake_account_keypair_path: PathBuf,
     amount_to_stake: SolAmount,
 ) -> anyhow::Result<()> {
     let stake_account_keypair = read_keypair_from_path(stake_account_keypair_path)?;
@@ -265,7 +266,7 @@ async fn process_create_stake_account(
         .map_err(|err| anyhow!("Unable to deserealize clock: {}", err))?;
 
     let current_epoch = clock.epoch;
-
+        
     // Add stake state specific information
     let mut table = Table::new();
     table
