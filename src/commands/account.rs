@@ -283,10 +283,10 @@ async fn transfer_sol(ctx: &ScillaContext, receiver: Pubkey, amount_sol: f64) ->
     
     println!(
         "\n{} {}\n{}\n{}",
-        style("Transfer successful!").green().bold(),
-        style(format!("Amount: {} SOL", amount_sol)).cyan(),
-        style(format!("Signature: {}", signature)).yellow(),
-        style(format!("Recipient Address: {}", receiver)).yellow()
+        style("Transfer successful!").green().bold().to_string(),
+        style(format!("Amount: {} SOL", amount_sol)).cyan().to_string(),
+        style(format!("Signature: {}", signature)).yellow().to_string(),
+        style(format!("Recipient Address: {}", receiver)).yellow().to_string()
     );
 
     Ok(())
