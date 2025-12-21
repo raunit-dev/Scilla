@@ -62,7 +62,7 @@ impl AccountCommand {
             AccountCommand::Transfer => {
                 let recipient_address:  Pubkey = prompt_data("Enter recipient Pubkey:")?;
                 let amount: f64 = prompt_data("Enter amount (SOL):")?;
-                show_spinner(self.description(), transfer_sol(ctx, receiver, amount)).await?;
+                show_spinner(self.description(), transfer_sol(ctx, recipient_address, amount)).await?;
             }
             AccountCommand::Airdrop => {
                 show_spinner(self.description(), request_sol_airdrop(ctx)).await?;
@@ -279,10 +279,10 @@ async fn transfer_sol(ctx: &ScillaContext, receiver: Pubkey, amount_sol: f64) ->
     
     println!(
         "\n{} {}\n{}\n{}",
-        style("Transfer successful!").green().bold(),
-        style(format!("Amount: {} SOL", amount_sol)).cyan(),
-        style(format!("Signature: {}", signature)).yellow(),
-        style(format!("Recipient Address: {}", receiver)).yellow()
+        style("Transfer successful!").green().bold().to_string(),
+        style(format!("Amount: {} SOL", amount_sol)).cyan().to_string(),
+        style(format!("Signature: {}", signature)).yellow().to_string(),
+        style(format!("Recipient Address: {}", receiver)).yellow().to_string()
     );
 
     Ok(())
