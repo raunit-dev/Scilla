@@ -87,12 +87,12 @@ impl StakeCommand {
         match self {
             StakeCommand::Create => {
                 let stake_account_keypair_path: PathBuf =
-                    prompt_data("Enter Stake Account Keypair Path: ")?;
+                    prompt_data("Enter Stake Account Keypair: ")?;
                 let amount_to_stake: SolAmount = prompt_data("Enter amount to stake (in SOL):")?;
 
                 show_spinner(
                     self.spinner_msg(),
-                    process_create_stake_account(ctx, stake_account_keypair_path, amount_to_stake),
+                    process_create_stake_account(ctx, &stake_account_keypair_path, amount_to_stake),
                 )
                 .await?;
             }
@@ -102,7 +102,11 @@ impl StakeCommand {
 
                 show_spinner(
                     self.spinner_msg(),
-                    delegate_stake_account(ctx, &stake_account_pubkey, &vote_account_pubkey),
+                    delegate_stake_account(
+                        ctx,
+                        &stake_account_pubkey,
+                        &vote_account_pubkey,
+                    ),
                 )
                 .await?;
             }
@@ -180,7 +184,7 @@ impl StakeCommand {
 
 async fn process_create_stake_account(
     ctx: &ScillaContext,
-    stake_account_keypair_path: PathBuf,
+    stake_account_keypair_path: &PathBuf,
     amount_to_stake: SolAmount,
 ) -> anyhow::Result<()> {
     let stake_account_keypair = read_keypair_from_path(stake_account_keypair_path)?;
@@ -206,19 +210,6 @@ async fn process_create_stake_account(
             stake_account_pubkey,
             fee_payer_pubkey,
         ));
-    }
-
-    // check if stake account already exists
-    if let Ok(stake_account) = ctx.rpc().get_account(&stake_account_pubkey).await {
-        let err_msg = if stake_account.owner == stake_program_id() {
-            format!("Stake account {stake_account_pubkey} already exists")
-        } else {
-            format!(
-                "Account: {} already exists but is not a stake account",
-                stake_account_pubkey
-            )
-        };
-        return Err(anyhow!(err_msg));
     }
 
     let authorized = Authorized {
@@ -455,18 +446,18 @@ async fn delegate_stake_account(
             ))
         };
 
-    if let Err(err) = &sanity_check {
-        let _ = format!("ignoring: {err}");
+    if let Err(_err) = &sanity_check {
         sanity_check?;
     }
 
-    let ix = vec![instruction::delegate_stake(
+    let ix = instruction::delegate_stake(
         stake_account_pubkey,
         &stake_authority_pubkey,
         vote_account_pubkey,
-    )];
+    );
 
-    let signature = build_and_send_tx(ctx, &ix, &[ctx.keypair(), &stake_authority_keypair]).await?;
+    let signature =
+        build_and_send_tx(ctx, &[ix], &[ctx.keypair(), &stake_authority_keypair]).await?;
 
     let accounts = ctx
         .rpc()
@@ -476,18 +467,16 @@ async fn delegate_stake_account(
     let stake_account = match accounts.first() {
         Some(account) => match account {
             Some(data) => data,
-            None => return Err(anyhow::anyhow!("Failed to get stake account data")),
+            None => bail!("Failed to get stake account data"),
         },
-        None => return Err(anyhow::anyhow!("Failed to get stake account")),
+        None => bail!("Failed to get stake account"),
     };
 
     let stake_history_account = match accounts.get(1) {
         Some(account) => match account {
             Some(data) => data,
             None => {
-                return Err(anyhow::anyhow!(
-                    "Unable to fetch stake history account data"
-                ));
+                bail!("Unable to fetch stake history account data");
             }
         },
         None => return Err(anyhow::anyhow!("Unable to get stake history account")),
@@ -496,13 +485,13 @@ async fn delegate_stake_account(
     let clock_account = match accounts.get(2) {
         Some(account) => match account {
             Some(data) => data,
-            None => return Err(anyhow::anyhow!("Failed to fetch clock account data")),
+            None => bail!("Failed to fetch clock account data"),
         },
-        None => return Err(anyhow::anyhow!("Unable to fetch clock account")),
+        None => bail!("Unable to fetch clock account"),
     };
 
     let stake_state: StakeStateV2 = bincode::deserialize(&stake_account.data)
-        .map_err(|e| anyhow::anyhow!("Failed to deserialize stake state: {}", e))?;
+        .map_err(|e| anyhow!("Failed to deserialize stake state: {}", e))?;
 
     let stake_history: StakeHistory = bincode::deserialize(&stake_history_account.data)
         .map_err(|err| anyhow!("Failed to deserialize stake history: {}", err))?;
