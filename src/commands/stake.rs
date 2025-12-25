@@ -6,12 +6,12 @@ use {
         error::ScillaResult,
         misc::helpers::{
             SolAmount, bincode_deserialize, bincode_deserialize_with_limit, build_and_send_tx,
-            fetch_account_with_epoch, lamports_to_sol, sol_to_lamports, read_keypair_from_path,
+            fetch_account_with_epoch, lamports_to_sol, read_keypair_from_path, sol_to_lamports,
         },
         prompt::prompt_data,
         ui::show_spinner,
     },
-    anyhow::{anyhow, bail},
+    anyhow::bail,
     comfy_table::{Cell, Table, presets::UTF8_FULL},
     console::style,
     solana_keypair::Signer,
@@ -325,12 +325,13 @@ async fn process_merge_stake(
         bail!("Failed to get stake account");
     };
 
-    let destination_stake_state: StakeStateV2 =
-        bincode::deserialize(&destination_stake_account.data)
-            .map_err(|err| anyhow!("Failed to deserialize destination stake account: {}", err))?;
+    let destination_stake_state: StakeStateV2 = bincode_deserialize(
+        &destination_stake_account.data,
+        "destination stake account data",
+    )?;
 
-    let source_stake_state: StakeStateV2 = bincode::deserialize(&source_stake_account.data)
-        .map_err(|err| anyhow!("Failed to deserialie source stake account: {}", err))?;
+    let source_stake_state: StakeStateV2 =
+        bincode_deserialize(&source_stake_account.data, "source stake account data")?;
 
     match &destination_stake_state {
         StakeStateV2::Initialized(meta) => {
