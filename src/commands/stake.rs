@@ -89,16 +89,25 @@ impl StakeCommand {
                 let stake_account_keypair_path: PathBuf =
                     prompt_data("Enter Stake Account Keypair: ")?;
                 let amount_to_stake: SolAmount = prompt_data("Enter amount to stake (in SOL):")?;
+                let withdraw_authority_keypair_path: PathBuf =
+                    prompt_data("Enter Withdraw Authority Keypair Path: ")?;
 
                 show_spinner(
                     self.spinner_msg(),
-                    process_create_stake_account(ctx, &stake_account_keypair_path, amount_to_stake),
+                    process_create_stake_account(
+                        ctx,
+                        stake_account_keypair_path,
+                        amount_to_stake,
+                        withdraw_authority_keypair_path,
+                    ),
                 )
                 .await?;
             }
             StakeCommand::Delegate => {
                 let stake_account_pubkey: Pubkey = prompt_data("Enter Stake Account Pubkey: ")?;
                 let vote_account_pubkey: Pubkey = prompt_data("Enter Vote Account Pubkey: ")?;
+                let stake_authorit_keypair_path: PathBuf =
+                    prompt_data("Enter Stake Authority Keypair Path: ")?;
 
                 show_spinner(
                     self.spinner_msg(),
@@ -106,6 +115,7 @@ impl StakeCommand {
                         ctx,
                         &stake_account_pubkey,
                         &vote_account_pubkey,
+                        stake_authorit_keypair_path,
                     ),
                 )
                 .await?;
@@ -186,12 +196,12 @@ async fn process_create_stake_account(
     ctx: &ScillaContext,
     stake_account_keypair_path: &PathBuf,
     amount_to_stake: SolAmount,
+    withdraw_authority_keypair_path: PathBuf,
 ) -> anyhow::Result<()> {
     let stake_account_keypair = read_keypair_from_path(stake_account_keypair_path)?;
     let stake_account_pubkey = stake_account_keypair.pubkey();
-    let withdraw_authority_pubkey: &Pubkey = ctx.pubkey();
-    let stake_authority_pubkey: &Pubkey = ctx.pubkey();
-    let fee_payer_pubkey: &Pubkey = ctx.pubkey();
+    let withdraw_authority_keypair = read_keypair_from_path(withdraw_authority_keypair_path)?;
+    let withdraw_authority_pubkey = withdraw_authority_keypair.pubkey();
 
     let lamports = amount_to_stake.to_lamports();
 
@@ -202,23 +212,23 @@ async fn process_create_stake_account(
 
     // amount in SOL + rent exempt
     let total_lamports = lamports + minimum_rent_for_balance;
-    check_minimum_balance(ctx, fee_payer_pubkey, total_lamports).await?;
+    check_minimum_balance(ctx, ctx.pubkey(), total_lamports).await?;
 
-    if *fee_payer_pubkey == stake_account_pubkey {
+    if ctx.pubkey() == &stake_account_pubkey {
         (bail!(
             "Stake Account {} cannout be the same as fee payer account {}",
             stake_account_pubkey,
-            fee_payer_pubkey,
+            ctx.pubkey(),
         ));
     }
 
     let authorized = Authorized {
-        staker: *stake_authority_pubkey,
-        withdrawer: *withdraw_authority_pubkey,
+        staker: *ctx.pubkey(),
+        withdrawer: withdraw_authority_pubkey,
     };
 
     let ix = instruction::create_account(
-        fee_payer_pubkey,
+        ctx.pubkey(),
         &stake_account_pubkey,
         &authorized,
         &Lockup::default(),
@@ -392,9 +402,10 @@ async fn delegate_stake_account(
     ctx: &ScillaContext,
     stake_account_pubkey: &Pubkey,
     vote_account_pubkey: &Pubkey,
+    stake_authority_keypair_path: PathBuf,
 ) -> anyhow::Result<()> {
     let stake_account = ctx.rpc().get_account(stake_account_pubkey).await?;
-    let stake_authority_keypair = ctx.keypair();
+    let stake_authority_keypair = read_keypair_from_path(stake_authority_keypair_path)?;
     let stake_authority_pubkey = stake_authority_keypair.pubkey();
 
     if stake_account.owner != stake_program_id() {
