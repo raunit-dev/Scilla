@@ -14,7 +14,6 @@ use {
     solana_nonce::versions::Versions,
     solana_pubkey::Pubkey,
     solana_rpc_client_api::config::{RpcLargestAccountsConfig, RpcLargestAccountsFilter},
-    solana_signature::Signature,
     std::fmt,
 };
 
@@ -25,7 +24,6 @@ pub enum AccountCommand {
     Balance,
     Transfer,
     Airdrop,
-    CheckTransactionConfirmation,
     LargestAccounts,
     NonceAccount,
     GoBack,
@@ -38,7 +36,6 @@ impl AccountCommand {
             AccountCommand::Balance => "Checking SOL balance…",
             AccountCommand::Transfer => "Sending SOL…",
             AccountCommand::Airdrop => "Requesting SOL on devnet/testnet…",
-            AccountCommand::CheckTransactionConfirmation => "Checking transaction confirmation…",
             AccountCommand::LargestAccounts => "Fetching largest accounts on the cluster…",
             AccountCommand::NonceAccount => "Inspecting or managing durable nonces…",
             AccountCommand::GoBack => "Going back…",
@@ -53,7 +50,6 @@ impl fmt::Display for AccountCommand {
             AccountCommand::Balance => "Check balance",
             AccountCommand::Transfer => "Transfer SOL",
             AccountCommand::Airdrop => "Request airdrop",
-            AccountCommand::CheckTransactionConfirmation => "Check transaction confirmation",
             AccountCommand::LargestAccounts => "View largest accounts",
             AccountCommand::NonceAccount => "View nonce account",
             AccountCommand::GoBack => "Go back",
@@ -78,10 +74,6 @@ impl AccountCommand {
             }
             AccountCommand::Airdrop => {
                 show_spinner(self.spinner_msg(), request_sol_airdrop(ctx)).await?;
-            }
-            AccountCommand::CheckTransactionConfirmation => {
-                let signature: Signature = prompt_data("Enter transaction signature:")?;
-                show_spinner(self.spinner_msg(), confirm_transaction(ctx, &signature)).await?;
             }
             AccountCommand::LargestAccounts => {
                 show_spinner(self.spinner_msg(), fetch_largest_accounts(ctx)).await?;
@@ -162,42 +154,6 @@ async fn fetch_account_balance(ctx: &ScillaContext, pubkey: &Pubkey) -> anyhow::
         style("Account balance in SOL:").green().bold(),
         style(format!("{acc_balance:#?}")).cyan()
     );
-
-    Ok(())
-}
-
-async fn confirm_transaction(ctx: &ScillaContext, signature: &Signature) -> anyhow::Result<()> {
-    let confirmed = ctx.rpc().confirm_transaction(signature).await?;
-
-    let status = if confirmed {
-        "Confirmed"
-    } else {
-        "Not Confirmed"
-    };
-    let status_color = if confirmed {
-        style(status).green()
-    } else {
-        style(status).yellow()
-    };
-
-    let mut table = Table::new();
-    table
-        .load_preset(UTF8_FULL)
-        .set_header(vec![
-            Cell::new("Field").add_attribute(comfy_table::Attribute::Bold),
-            Cell::new("Value").add_attribute(comfy_table::Attribute::Bold),
-        ])
-        .add_row(vec![
-            Cell::new("Signature"),
-            Cell::new(signature.to_string()),
-        ])
-        .add_row(vec![
-            Cell::new("Status"),
-            Cell::new(status_color.to_string()),
-        ]);
-
-    println!("\n{}", style("TRANSACTION CONFIRMATION").green().bold());
-    println!("{table}");
 
     Ok(())
 }
