@@ -135,7 +135,10 @@ async fn process_fetch_transaction_status(
     ctx: &ScillaContext,
     signature: &Signature,
 ) -> anyhow::Result<()> {
-    let status = ctx.rpc().get_signature_statuses(&[*signature]).await?;
+    let status = ctx
+        .rpc()
+        .get_signature_statuses_with_history(&[*signature])
+        .await?;
 
     let Some(Some(tx_status)) = status.value.first() else {
         anyhow::bail!("Transaction not found");
@@ -149,17 +152,44 @@ async fn process_fetch_transaction_status(
             Cell::new("Value").add_attribute(comfy_table::Attribute::Bold),
         ])
         .add_row(vec![Cell::new("Signature"), Cell::new(signature)])
-        .add_row(vec![Cell::new("Slot"), Cell::new(tx_status.slot)])
-        .add_row(vec![
-            Cell::new("Status"),
-            Cell::new(if tx_status.err.is_none() {
-                style("Success").green().to_string()
-            } else {
-                style(format!("Error: {:?}", tx_status.err))
-                    .red()
-                    .to_string()
+        .add_row(vec![Cell::new("Slot"), Cell::new(tx_status.slot)]);
+
+    if let Some(confirmations) = tx_status.confirmations {
+        table.add_row(vec![Cell::new("Confirmations"), Cell::new(confirmations)]);
+    } else {
+        table.add_row(vec![
+            Cell::new("Confirmations"),
+            Cell::new(style("Finalized").green()),
+        ]);
+    }
+
+    if let Some(confirmation_status) = &tx_status.confirmation_status {
+        table.add_row(vec![
+            Cell::new("Confirmation Status"),
+            Cell::new(match confirmation_status {
+                solana_transaction_status::TransactionConfirmationStatus::Processed => {
+                    style("Processed").yellow().to_string()
+                }
+                solana_transaction_status::TransactionConfirmationStatus::Confirmed => {
+                    style("Confirmed").cyan().to_string()
+                }
+                solana_transaction_status::TransactionConfirmationStatus::Finalized => {
+                    style("Finalized").green().to_string()
+                }
             }),
         ]);
+    }
+
+    table.add_row(vec![
+        Cell::new("Status"),
+        Cell::new(if tx_status.err.is_none() {
+            style("Success").green().to_string()
+        } else {
+            style(format!("Error: {:?}", tx_status.err))
+                .red()
+                .to_string()
+        }),
+    ]);
 
     println!("\n{}", style("TRANSACTION STATUS").green().bold());
     println!("{}", table);
