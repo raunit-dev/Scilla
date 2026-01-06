@@ -5,23 +5,17 @@ use {
         misc::helpers::{bincode_deserialize, build_and_send_tx, lamports_to_sol, sol_to_lamports},
         prompt::prompt_input_data,
         ui::{print_error, show_spinner},
-        constants::LAMPORTS_PER_SOL,
     },
     anyhow::bail,
     comfy_table::{Cell, Table, presets::UTF8_FULL},
     console::style,
     inquire::Select,
-    solana_message::Message,
     solana_nonce::versions::Versions,
     solana_pubkey::Pubkey,
     solana_rpc_client_api::config::{RpcLargestAccountsConfig, RpcLargestAccountsFilter},
-    std::fmt,
-    solana_signature::Signature,
     solana_system_interface::instruction::transfer,
-    solana_transaction::Transaction,
+    std::fmt,
 };
-
-
 
 /// Commands related to wallet or account management
 #[derive(Debug, Clone)]
@@ -268,25 +262,32 @@ async fn fetch_nonce_account(ctx: &ScillaContext, pubkey: &Pubkey) -> anyhow::Re
     Ok(())
 }
 
-async fn transfer_sol(ctx: &ScillaContext, receiver: Pubkey, amount_sol: f64) -> anyhow::Result<()> {
+async fn transfer_sol(
+    ctx: &ScillaContext,
+    receiver: Pubkey,
+    amount_sol: f64,
+) -> anyhow::Result<()> {
     let lamports = sol_to_lamports(amount_sol);
-    
+
     // Validate transfer amount
     let balance = ctx.rpc().get_balance(ctx.pubkey()).await?;
     if lamports > balance {
-        bail!("Insufficient balance. You have {} SOL but tried to send {} SOL", 
-              lamports_to_sol(balance), amount_sol);
+        bail!(
+            "Insufficient balance. You have {} SOL but tried to send {} SOL",
+            lamports_to_sol(balance),
+            amount_sol
+        );
     }
-    
+
     let instruction = transfer(ctx.pubkey(), &receiver, lamports);
-    let signature = build_and_send_tx(ctx, &[instruction]).await?;
-    
+    let signature = build_and_send_tx(ctx, &[instruction], &[ctx.keypair()]).await?;
+
     println!(
         "\n{} {}\n{}\n{}",
-        style("Transfer successful!").green().bold().to_string(),
-        style(format!("Amount: {} SOL", amount_sol)).cyan().to_string(),
-        style(format!("Signature: {}", signature)).yellow().to_string(),
-        style(format!("Recipient Address: {}", receiver)).yellow().to_string()
+        style("Transfer successful!").green().bold(),
+        style(format!("Amount: {} SOL", amount_sol)).cyan(),
+        style(format!("Signature: {}", signature)).yellow(),
+        style(format!("Recipient Address: {}", receiver)).yellow()
     );
 
     Ok(())
